@@ -18,7 +18,6 @@ jobs:
           cache: 'pip'
 
       - name: Instalar dependências do Sistema (Display Virtual)
-        # Instala um monitor falso para o Chrome fantasma funcionar sem erros
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
@@ -27,13 +26,16 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Executar o Scraper e Gerar PDF
-        # Roda o script dentro do display virtual (xvfb-run)
         run: xvfb-run python gerar_manga.py
 
-      - name: Salvar PDF como Artefato
+      - name: Salvar Resultados como Artefato
         uses: actions/upload-artifact@v4
-        if: success() 
+        # always() força o GitHub a salvar os arquivos mesmo que o script dê Erro 1
+        if: always() 
         with:
-          name: manga-pdf-artefato
-          path: '*.pdf' 
+          name: manga-resultados
+          # Salva o PDF e o Print de erro (se existir)
+          path: |
+            *.pdf
+            *.png
           retention-days: 7

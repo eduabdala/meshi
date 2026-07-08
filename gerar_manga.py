@@ -7,7 +7,6 @@ from bs4 import BeautifulSoup
 from seleniumbase import Driver
 from PIL import Image
 
-# Desativa avisos de segurança ao baixar imagens diretas
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 url = 'https://deliciousdungeon.com/manga/delicious-in-dungeon-chapter-01/'
@@ -17,19 +16,26 @@ nome_pdf = 'Delicious_in_Dungeon_Cap_01.pdf'
 if not os.path.exists(pasta_destino):
     os.makedirs(pasta_destino)
 
-print("Iniciando navegador fantasma para burlar o Cloudflare...")
+print("Iniciando navegador no modo MÁSCARA MÁXIMA (Xvfb + Real Browser)...")
 
-# Inicializa o Undetected Chromedriver (Modo UC) em modo invisível (headless)
-driver = Driver(uc=True, headless=True)
+# A MÁGICA ESTÁ AQUI: headless=False
+# Como o GitHub não tem monitor, o Xvfb (que configuramos no .yml) vai absorver a tela
+driver = Driver(uc=True, headless=False)
 
 try:
     print("Acessando o site e aguardando verificação anti-bot...")
     driver.get(url)
     
-    # Dá 10 segundos para o Cloudflare carregar e o site renderizar as imagens (Lazy Load)
-    time.sleep(10) 
+    # Damos 15 segundos porque servidores do GitHub podem ser um pouco mais lentos 
+    # e precisamos que o Cloudflare termine de rodar os scripts dele
+    time.sleep(15) 
     
-    # Pega o HTML final, já processado e validado
+    # Rolagem de página suave para enganar o anti-bot e ativar o Lazy-Load
+    print("Rolando a página para carregar as imagens...")
+    for i in range(1, 10):
+        driver.execute_script(f"window.scrollTo(0, document.body.scrollHeight * {i/10});")
+        time.sleep(1.5)
+        
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
     imagens = soup.find_all('img')
@@ -37,7 +43,7 @@ try:
     padrao_url = re.compile(r'/s\d+/(\d+)\.jpg', re.IGNORECASE)
     imagens_baixadas = 0
     
-    print("Mapeando imagens do capítulo...")
+    print("Iniciando o download das páginas...")
     for img in imagens:
         img_url = img.get('src') or img.get('data-src') or img.get('data-lazy-src')
         if img_url:
@@ -45,8 +51,6 @@ try:
             if match:
                 numero = match.group(1)
                 try:
-                    # O link da imagem (Blogger) não costuma ter bloqueio forte, 
-                    # então baixamos diretamente com requests
                     img_data = requests.get(img_url, verify=False, timeout=15).content
                     nome_arquivo = f"{int(numero):02d}.jpg"
                     caminho = os.path.join(pasta_destino, nome_arquivo)
@@ -77,9 +81,11 @@ try:
             )
             print(f"Sucesso! PDF gerado: {nome_pdf}")
     else:
-        print("\nNenhuma imagem encontrada. O bloqueio pode ser um Captcha visual ou a estrutura do site mudou.")
+        # SISTEMA DE DEBUG: Tira print se falhar!
+        print("\nNenhuma imagem encontrada. O bloqueio ainda está ativo.")
+        print("Tirando um print da tela para investigarmos...")
+        driver.save_screenshot("debug_cloudflare.png")
         exit(1)
 
 finally:
-    # Garante que o navegador vai ser fechado para não travar a máquina
     driver.quit()
