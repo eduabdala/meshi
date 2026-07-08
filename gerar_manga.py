@@ -6,6 +6,7 @@ import urllib3
 from bs4 import BeautifulSoup
 from seleniumbase import Driver
 from PIL import Image
+import io
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -18,21 +19,16 @@ if not os.path.exists(pasta_destino):
 
 print("Iniciando navegador no modo MÁSCARA MÁXIMA (Xvfb + Real Browser)...")
 
-# A MÁGICA ESTÁ AQUI: headless=False
-# Como o GitHub não tem monitor, o Xvfb (que configuramos no .yml) vai absorver a tela
 driver = Driver(uc=True, headless=False)
 
 try:
     print("Acessando o site e aguardando verificação anti-bot...")
     driver.get(url)
     
-    # Damos 15 segundos porque servidores do GitHub podem ser um pouco mais lentos 
-    # e precisamos que o Cloudflare termine de rodar os scripts dele
     time.sleep(15) 
     
-    # Rolagem de página suave para enganar o anti-bot e ativar o Lazy-Load
     print("Rolando a página para carregar as imagens...")
-    for i in range(1, 10):
+    for i in range(1, 11):
         driver.execute_script(f"window.scrollTo(0, document.body.scrollHeight * {i/10});")
         time.sleep(1.5)
         
@@ -40,27 +36,40 @@ try:
     soup = BeautifulSoup(html, 'html.parser')
     imagens = soup.find_all('img')
     
-    padrao_url = re.compile(r'/s\d+/(\d+)\.jpg', re.IGNORECASE)
     imagens_baixadas = 0
+    contador = 1
     
     print("Iniciando o download das páginas...")
     for img in imagens:
+        # Pega a URL de onde a imagem estiver escondida
         img_url = img.get('src') or img.get('data-src') or img.get('data-lazy-src')
-        if img_url:
-            match = padrao_url.search(img_url)
-            if match:
-                numero = match.group(1)
+        
+        # Filtro Inteligente: Pega imagens do Google Blogger ou do próprio site, 
+        # ignorando ícones, logos e avatares menores.
+        if img_url and ('googleusercontent' in img_url or 'uploads' in img_url):
+            if 'logo' not in img_url.lower() and 'avatar' not in img_url.lower():
+                
+                # Tenta extrair o número da URL se existir (ex: /05.webp -> 5)
+                match = re.search(r'/(\d+)\.(jpg|png|webp|jpeg)', img_url, re.IGNORECASE)
+                numero = int(match.group(1)) if match else contador
+                
                 try:
                     img_data = requests.get(img_url, verify=False, timeout=15).content
-                    nome_arquivo = f"{int(numero):02d}.jpg"
+                    
+                    # Converte a imagem na memória para garantir que seja salva como JPG limpo
+                    # Isso resolve o problema de sites que usam .webp e quebram a geração do PDF
+                    imagem_aberta = Image.open(io.BytesIO(img_data)).convert('RGB')
+                    
+                    nome_arquivo = f"{numero:02d}.jpg"
                     caminho = os.path.join(pasta_destino, nome_arquivo)
                     
-                    with open(caminho, 'wb') as f:
-                        f.write(img_data)
-                    print(f"Página {nome_arquivo} baixada.")
+                    imagem_aberta.save(caminho, 'JPEG')
+                    
+                    print(f"Página {nome_arquivo} baixada com sucesso!")
                     imagens_baixadas += 1
+                    contador += 1
                 except Exception as e:
-                    print(f"Erro na página {numero}: {e}")
+                    print(f"Ignorando imagem inválida ou com erro: {img_url} - Erro: {e}")
 
     # --- GERAÇÃO DO PDF ---
     if imagens_baixadas > 0:
@@ -81,10 +90,10 @@ try:
             )
             print(f"Sucesso! PDF gerado: {nome_pdf}")
     else:
-        # SISTEMA DE DEBUG: Tira print se falhar!
-        print("\nNenhuma imagem encontrada. O bloqueio ainda está ativo.")
-        print("Tirando um print da tela para investigarmos...")
+        print("\nNenhuma imagem de mangá encontrada. Salvando HTML para debug...")
         driver.save_screenshot("debug_cloudflare.png")
+        with open("codigo_do_site.html", "w", encoding="utf-8") as f:
+            f.write(html)
         exit(1)
 
 finally:
