@@ -12,8 +12,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # ==========================================
 # CONFIGURAÇÕES DE CAPÍTULOS
 # ==========================================
-capitulo_inicial = 50
-capitulo_final = 91  # Mude aqui para baixar quantos capítulos quiser de uma vez
+capitulo_inicial = 74
+capitulo_final = 80  # Mude aqui para baixar quantos capítulos quiser de uma vez
 
 print(f"Iniciando download dos capítulos {capitulo_inicial} ao {capitulo_final}...")
 print("Iniciando navegador no modo MÁSCARA MÁXIMA (Xvfb + Real Browser)...")
