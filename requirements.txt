@@ -1,3 +1,4 @@
-curl_cffi==0.5.10
+seleniumbase==4.25.1
 beautifulsoup4==4.12.3
 Pillow==10.2.0
+requests==2.31.0

@@ -1,6 +1,5 @@
 name: Gerador de Mangá em PDF
 
-# Permite rodar o script manualmente através de um botão no GitHub
 on:
   workflow_dispatch:
 
@@ -18,18 +17,23 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Instalar dependências
+      - name: Instalar dependências do Sistema (Display Virtual)
+        # Instala um monitor falso para o Chrome fantasma funcionar sem erros
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      - name: Instalar dependências do Python
         run: pip install -r requirements.txt
 
       - name: Executar o Scraper e Gerar PDF
-        run: python gerar_manga.py
+        # Roda o script dentro do display virtual (xvfb-run)
+        run: xvfb-run python gerar_manga.py
 
       - name: Salvar PDF como Artefato
         uses: actions/upload-artifact@v4
-        # Esta etapa só roda se o PDF foi gerado com sucesso
         if: success() 
         with:
           name: manga-pdf-artefato
-          # Faz o upload apenas do arquivo PDF gerado na raiz
           path: '*.pdf' 
           retention-days: 7
