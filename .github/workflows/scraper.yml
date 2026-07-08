@@ -1,0 +1,35 @@
+name: Gerador de Mangá em PDF
+
+# Permite rodar o script manualmente através de um botão no GitHub
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar o repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Executar o Scraper e Gerar PDF
+        run: python gerar_manga.py
+
+      - name: Salvar PDF como Artefato
+        uses: actions/upload-artifact@v4
+        # Esta etapa só roda se o PDF foi gerado com sucesso
+        if: success() 
+        with:
+          name: manga-pdf-artefato
+          # Faz o upload apenas do arquivo PDF gerado na raiz
+          path: '*.pdf' 
+          retention-days: 7
